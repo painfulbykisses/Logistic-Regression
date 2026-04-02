@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulasi Regresi Linier — Gradient Descent</title>
-    <meta name="description" content="Simulasi interaktif menemukan garis regresi linier terbaik dengan pendekatan numerik gradient descent">
+    <title>Simulasi Logistic Regression & Perceptron</title>
+    <meta name="description" content="Simulasi interaktif implementasi Logistic Regression dan Perceptron Algorithm dengan Gradient Descent">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -16,125 +16,145 @@
         <div class="hero-grid-bg"></div>
         <div class="container">
             <div class="hero-badge">PEMODELAN INTELIGENSI BUATAN</div>
-            <h1>Tugas 2 — <span class="cyan-text">Regresi Linier</span></h1>
-            <p class="hero-subtitle">Simulasi Pencarian Garis Terbaik via Gradient Descent · Pendekatan Numerik · MSE Minimization</p>
+            <h1>Tugas 3 — <span class="cyan-text">Logistic Regression</span></h1>
+            <p class="hero-subtitle">Perceptron Algorithm · Sigmoid Function · Gradient Descent · Log-Loss Minimization</p>
             <div class="hero-author">
                 <span class="author-name">MUHAMMAD DZIKRI HIKMATIKA CHAIRUL HADI</span>
                 <span class="author-nim">(225090307111007)</span>
             </div>
+            <p style="margin-top:12px;font-size:12px;color:var(--text-muted);font-family:var(--font-mono);">
+                Referensi: <a href="https://www.youtube.com/watch?v=jbluHIgBmBo" target="_blank" style="color:var(--accent);">Luis Serrano — Logistic Regression and the Perceptron Algorithm</a>
+            </p>
         </div>
     </header>
 
-    <!-- Data Points Section -->
+    <!-- STEP 1: Data Points -->
     <section class="section" id="data-section">
         <div class="container">
             <div class="section-header">
                 <span class="section-tag">STEP 1</span>
-                <h2>Data Points</h2>
-                <p>Klik pada canvas untuk menambahkan titik data, atau gunakan data preset.</p>
+                <h2>Data Points — Dua Kelas</h2>
+                <p>Pilih kelas yang aktif, lalu klik canvas untuk menambahkan titik data. Gunakan dua kelas untuk klasifikasi biner.</p>
+            </div>
+            <div class="class-toggle">
+                <button class="class-btn active-0" id="class-btn-0" onclick="setActiveClass(0)"><svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="5"/></svg> Kelas 0 (Biru)</button>
+                <button class="class-btn" id="class-btn-1" onclick="setActiveClass(1)"><svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="5"/></svg> Kelas 1 (Orange)</button>
             </div>
             <div class="data-controls">
-                <button class="btn btn-primary" id="btn-preset-1"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg> Dataset 1</button>
-                <button class="btn btn-primary" id="btn-preset-2"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg> Dataset 2</button>
-                <button class="btn btn-primary" id="btn-preset-3"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg> Random</button>
-                <button class="btn btn-danger" id="btn-clear"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> Clear</button>
+                <button class="btn btn-primary" onclick="loadPreset(1)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg> Linearly Separable</button>
+                <button class="btn btn-primary" onclick="loadPreset(2)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg> Overlap Data</button>
+                <button class="btn btn-primary" onclick="loadPreset(3)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg> Random</button>
+                <button class="btn btn-danger" onclick="clearData()"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> Clear</button>
             </div>
             <div class="canvas-wrapper" id="data-canvas-wrapper">
-                <canvas id="data-canvas" width="800" height="450"></canvas>
-                <div class="canvas-hint">Klik di sini untuk menambahkan titik data</div>
+                <canvas id="data-canvas" width="800" height="500"></canvas>
+                <div class="canvas-hint">Klik untuk menambahkan titik data</div>
             </div>
-            <div class="data-info" id="data-info">
-                <span>Jumlah titik: <strong id="point-count">0</strong></span>
+            <div class="data-info">
+                Kelas 0: <strong id="count-0" style="color:var(--class-0)">0</strong> · Kelas 1: <strong id="count-1" style="color:var(--class-1)">0</strong> · Total: <strong id="count-total">0</strong>
             </div>
         </div>
     </section>
 
-    <!-- Simulation Config Section -->
+    <!-- STEP 2: Config -->
     <section class="section section-alt" id="config-section">
         <div class="container">
             <div class="section-header">
                 <span class="section-tag">STEP 2</span>
-                <h2>Konfigurasi Simulasi</h2>
-                <p>Atur beberapa skenario dengan learning rate dan nilai awal yang berbeda.</p>
+                <h2>Konfigurasi Algoritma</h2>
+                <p>Atur parameter untuk Perceptron dan Logistic Regression.</p>
             </div>
-            <div class="sim-configs" id="sim-configs">
-                <!-- Simulation cards will be injected here -->
+            <div class="config-grid">
+                <div class="config-card">
+                    <h3><svg class="icon icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Parameter Umum</h3>
+                    <div class="field">
+                        <label>Learning Rate (α)</label>
+                        <input type="number" id="lr" value="0.1" step="0.01" min="0.001" max="10">
+                    </div>
+                    <div class="field">
+                        <label>Epochs (Iterasi)</label>
+                        <input type="number" id="epochs" value="200" step="10" min="10" max="5000">
+                    </div>
+                </div>
+                <div class="config-card">
+                    <h3><svg class="icon icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Nilai Awal Weights</h3>
+                    <div class="field-row">
+                        <div class="field"><label>w₁ (awal)</label><input type="number" id="w1-init" value="0" step="0.1"></div>
+                        <div class="field"><label>w₂ (awal)</label><input type="number" id="w2-init" value="0" step="0.1"></div>
+                    </div>
+                    <div class="field"><label>b (bias awal)</label><input type="number" id="b-init" value="0" step="0.1"></div>
+                    <button class="btn btn-sm btn-secondary" onclick="randomizeWeights()" style="margin-top:6px;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="3"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="16" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="16" r="1.5" fill="currentColor"/><circle cx="16" cy="16" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg> Randomize</button>
+                </div>
+                <div class="config-card">
+                    <h3><svg class="icon icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12h6"/><path d="M9 16h6"/></svg> Pilih Algoritma</h3>
+                    <div class="field">
+                        <label>Algoritma</label>
+                        <select id="algo-select">
+                            <option value="both">Keduanya (Perbandingan)</option>
+                            <option value="perceptron">Perceptron Saja</option>
+                            <option value="logistic">Logistic Regression Saja</option>
+                        </select>
+                    </div>
+                    <p style="font-size:12px;color:var(--text-muted);margin-top:10px;line-height:1.6;">
+                        <strong>Perceptron:</strong> Menggeser garis jika titik salah klasifikasi.<br>
+                        <strong>Logistic Reg:</strong> Sigmoid + Gradient Descent + Log-Loss.
+                    </p>
+                </div>
             </div>
             <div class="config-actions">
-                <button class="btn btn-secondary" id="btn-add-sim">+ Tambah Simulasi</button>
-                <button class="btn btn-accent btn-large" id="btn-run-all">
-                    <svg class="icon icon-lg" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg> Jalankan Semua Simulasi
+                <button class="btn btn-accent btn-large" id="btn-run" onclick="runSimulation()">
+                    <svg class="icon icon-lg" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg> Jalankan Simulasi
                 </button>
             </div>
         </div>
     </section>
 
-    <!-- Visualization Section -->
+    <!-- STEP 3: Visualization -->
     <section class="section" id="viz-section" style="display:none;">
         <div class="container">
             <div class="section-header">
                 <span class="section-tag">STEP 3</span>
-                <h2>Visualisasi Gradient Descent</h2>
-                <p>Lihat bagaimana setiap simulasi mencari garis terbaik secara bersamaan.</p>
+                <h2>Visualisasi Training</h2>
+                <p>Lihat proses training decision boundary secara real-time.</p>
             </div>
-
-            <div class="viz-controls">
-                <div class="speed-control">
-                    <label>Kecepatan Animasi:</label>
-                    <input type="range" id="speed-slider" min="1" max="100" value="50">
-                    <span id="speed-label">50</span>
-                </div>
-                <button class="btn btn-primary" id="btn-pause"><svg class="icon pause-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg> Pause</button>
-                <button class="btn btn-primary" id="btn-reset-viz"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Reset</button>
+            <div class="speed-control">
+                <label>Kecepatan Animasi:</label>
+                <input type="range" id="speed-slider" min="1" max="100" value="50">
+                <span id="speed-label">50</span>
+                <button class="btn btn-sm btn-primary" id="btn-pause" onclick="togglePause()"><svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg> Pause</button>
+                <button class="btn btn-sm btn-secondary" onclick="resetViz()"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Reset</button>
             </div>
-
-            <div class="viz-grid" id="viz-grid">
-                <!-- Simulation visualization cards injected here -->
-            </div>
-
-            <!-- MSE Convergence Chart -->
-            <div class="mse-chart-wrapper">
-                <h3><svg class="icon icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg> MSE Convergence — Semua Simulasi</h3>
-                <canvas id="mse-chart" width="900" height="350"></canvas>
+            <div class="viz-grid" id="viz-grid"></div>
+            <div class="chart-wrapper">
+                <h3><svg class="icon icon-inline icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg> Loss Convergence</h3>
+                <canvas id="loss-chart" width="900" height="350"></canvas>
             </div>
         </div>
     </section>
 
-    <!-- Results Section -->
+    <!-- Results -->
     <section class="section section-alt" id="results-section" style="display:none;">
         <div class="container">
             <div class="section-header">
                 <span class="section-tag">HASIL</span>
                 <h2><svg class="icon icon-inline icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg> Perbandingan Hasil</h2>
-                <p>Garis terbaik berdasarkan nilai MSE terendah.</p>
+                <p>Ringkasan performa algoritma.</p>
             </div>
             <div class="results-table-wrapper">
                 <table class="results-table" id="results-table">
-                    <thead>
-                        <tr>
-                            <th>Rank</th>
-                            <th>Simulasi</th>
-                            <th>Learning Rate</th>
-                            <th>Initial m</th>
-                            <th>Initial b</th>
-                            <th>Final m</th>
-                            <th>Final b</th>
-                            <th>Final MSE</th>
-                            <th>Epochs</th>
-                        </tr>
-                    </thead>
-                    <tbody id="results-body">
-                    </tbody>
+                    <thead><tr>
+                        <th>Algoritma</th><th>Final w₁</th><th>Final w₂</th><th>Final b</th>
+                        <th>Accuracy</th><th>Final Loss</th><th>Epochs</th>
+                    </tr></thead>
+                    <tbody id="results-body"></tbody>
                 </table>
             </div>
-            <div class="best-result-card" id="best-result-card" style="display:none;">
-                <!-- Best result details -->
-            </div>
+            <div class="best-result-card" id="best-result-card" style="display:none;"></div>
         </div>
     </section>
 
-    <!-- How It Works Section -->
-    <section class="section" id="how-section">
+    <!-- Info -->
+    <section class="section" id="info-section">
         <div class="container">
             <div class="section-header">
                 <span class="section-tag">INFO</span>
@@ -142,29 +162,24 @@
             </div>
             <div class="info-cards">
                 <div class="info-card">
-                    <div class="info-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L3 21"/><path d="M21 3H6"/><path d="M21 3v15"/><path d="M9 3v3"/><path d="M12 3v2"/><path d="M15 3v3"/><path d="M18 3v2"/><path d="M21 6h-3"/><path d="M21 9h-2"/><path d="M21 12h-3"/><path d="M21 15h-2"/></svg></div>
-                    <h3>Model Linier</h3>
-                    <p>Garis regresi: <code>ŷ = m·x + b</code><br>
-                    dimana <strong>m</strong> = slope (kemiringan) dan <strong>b</strong> = intercept.</p>
+                    <div class="info-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="2" y1="20" x2="22" y2="4"/><circle cx="6" cy="16" r="2"/><circle cx="18" cy="8" r="2"/></svg></div>
+                    <h3>Perceptron Algorithm</h3>
+                    <p>Jika titik salah klasifikasi, update:<br><code>w = w + α·y·x</code><br><code>b = b + α·y</code><br>Bergerak menuju titik yang salah untuk memperbaiki batas keputusan.</p>
                 </div>
                 <div class="info-card">
-                    <div class="info-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="22" height="12" rx="2"/><line x1="5" y1="6" x2="5" y2="11"/><line x1="9" y1="6" x2="9" y2="9"/><line x1="13" y1="6" x2="13" y2="11"/><line x1="17" y1="6" x2="17" y2="9"/></svg></div>
-                    <h3>Mean Squared Error</h3>
-                    <p>MSE = <code>(1/n) Σ(yᵢ - ŷᵢ)²</code><br>
-                    Mengukur rata-rata kuadrat selisih antara nilai aktual dan prediksi.</p>
+                    <div class="info-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12 C2 12 6 4 12 4 S22 12 22 12"/><path d="M2 12 C2 12 6 20 12 20 S22 12 22 12"/></svg></div>
+                    <h3>Sigmoid Function</h3>
+                    <p>Mengubah nilai linear menjadi probabilitas:<br><code>σ(z) = 1 / (1 + e⁻ᶻ)</code><br>dimana <code>z = w₁x₁ + w₂x₂ + b</code></p>
                 </div>
                 <div class="info-card">
-                    <div class="info-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/><line x1="5" y1="3" x2="19" y2="3"/></svg></div>
+                    <div class="info-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg></div>
+                    <h3>Log-Loss (Cross-Entropy)</h3>
+                    <p>Error function:<br><code>L = -[y·ln(ŷ) + (1-y)·ln(1-ŷ)]</code><br>Memberi penalti besar untuk prediksi yang jauh dari label.</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></div>
                     <h3>Gradient Descent</h3>
-                    <p>Update parameter:<br>
-                    <code>m = m - lr · ∂MSE/∂m</code><br>
-                    <code>b = b - lr · ∂MSE/∂b</code><br>
-                    Secara iteratif turun menuju minimum MSE.</p>
-                </div>
-                <div class="info-card">
-                    <div class="info-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
-                    <h3>Learning Rate</h3>
-                    <p>Mengontrol ukuran langkah setiap iterasi. Terlalu besar → divergen. Terlalu kecil → lambat konvergen.</p>
+                    <p>Update weights menggunakan gradien:<br><code>w = w - α · ∂L/∂w</code><br><code>∂L/∂wⱼ = (ŷ - y) · xⱼ</code></p>
                 </div>
             </div>
         </div>
@@ -172,8 +187,8 @@
 
     <footer class="footer">
         <div class="container">
-            <p>Simulasi Regresi Linier — Gradient Descent Approach</p>
-            <p class="footer-sub">Terinspirasi dari <a href="https://www.youtube.com/watch?v=wYPUhge9w5c" target="_blank">Linear Regression: A Friendly Introduction</a> oleh Luis Serrano</p>
+            <p>Tugas 3 — Logistic Regression & Perceptron · Pemodelan Inteligensi Buatan</p>
+            <p class="footer-sub">Referensi: <a href="https://www.youtube.com/watch?v=jbluHIgBmBo" target="_blank">Luis Serrano — Logistic Regression and the Perceptron Algorithm</a></p>
         </div>
     </footer>
 

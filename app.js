@@ -1,736 +1,473 @@
-// ============================================================
-// Linear Regression — Gradient Descent Simulation
-// ============================================================
+// ===== STATE =====
+let dataPoints = [];
+let activeClass = 0;
+let isPaused = false;
+let animationId = null;
+let simResults = [];
 
-(() => {
-    'use strict';
+const C = { W: 800, H: 500, PAD: 50 };
+const dataCanvas = document.getElementById('data-canvas');
+const dataCtx = dataCanvas.getContext('2d');
 
-    // ==================== STATE ====================
-    const SIM_COLORS = ['#ff7a1a', '#ffb347', '#ff5722', '#ffd180', '#e65100', '#ffab40'];
-    const SIM_NAMES = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta'];
+// ===== SVG ICON TEMPLATES =====
+const ICONS = {
+    pause: '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>',
+    play: '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+    trophy: '<svg class="icon icon-inline icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>'
+};
 
-    let dataPoints = [];
-    let simulations = [];
-    let simResults = [];
-    let animRunning = false;
-    let animPaused = false;
-    let animSpeed = 50;
-    let animFrameId = null;
-    let simIdCounter = 0;
+// ===== CLASS TOGGLE =====
+function setActiveClass(c) {
+    activeClass = c;
+    document.getElementById('class-btn-0').className = 'class-btn' + (c === 0 ? ' active-0' : '');
+    document.getElementById('class-btn-1').className = 'class-btn' + (c === 1 ? ' active-1' : '');
+}
 
-    // ==================== DOM REFS ====================
-    const dataCanvas = document.getElementById('data-canvas');
-    const dataCtx = dataCanvas.getContext('2d');
-    const pointCountEl = document.getElementById('point-count');
-    const simConfigsEl = document.getElementById('sim-configs');
-    const vizSection = document.getElementById('viz-section');
-    const vizGrid = document.getElementById('viz-grid');
-    const resultsSection = document.getElementById('results-section');
-    const resultsBody = document.getElementById('results-body');
-    const bestResultCard = document.getElementById('best-result-card');
-    const mseChart = document.getElementById('mse-chart');
-    const mseCtx = mseChart.getContext('2d');
-    const speedSlider = document.getElementById('speed-slider');
-    const speedLabel = document.getElementById('speed-label');
-
-    // Canvas scaling for retina
-    function setupHiDPI(canvas, w, h) {
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = w * dpr;
-        canvas.height = h * dpr;
-        canvas.style.width = w + 'px';
-        canvas.style.height = h + 'px';
-        canvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+// ===== DATA INPUT =====
+dataCanvas.addEventListener('click', function(e) {
+    const rect = dataCanvas.getBoundingClientRect();
+    const sx = C.W / rect.width;
+    const px = (e.clientX - rect.left) * sx;
+    const py = (e.clientY - rect.top) * sx;
+    const x1 = (px - C.PAD) / (C.W - 2 * C.PAD) * 10;
+    const x2 = (1 - (py - C.PAD) / (C.H - 2 * C.PAD)) * 10;
+    if (x1 >= 0 && x1 <= 10 && x2 >= 0 && x2 <= 10) {
+        dataPoints.push({ x1, x2, label: activeClass });
+        drawData();
     }
+});
 
-    // ==================== DATA CANVAS ====================
-    const DATA_W = 800, DATA_H = 450;
-    // Coordinate ranges for mapping
-    const COORD = { xMin: -1, xMax: 11, yMin: -2, yMax: 14 };
+function clearData() {
+    dataPoints = [];
+    drawData();
+}
 
-    function toCanvasX(x) { return ((x - COORD.xMin) / (COORD.xMax - COORD.xMin)) * DATA_W; }
-    function toCanvasY(y) { return DATA_H - ((y - COORD.yMin) / (COORD.yMax - COORD.yMin)) * DATA_H; }
-    function toDataX(cx) { return COORD.xMin + (cx / DATA_W) * (COORD.xMax - COORD.xMin); }
-    function toDataY(cy) { return COORD.yMin + ((DATA_H - cy) / DATA_H) * (COORD.yMax - COORD.yMin); }
+function loadPreset(p) {
+    dataPoints = [];
+    if (p === 1) {
+        for (let i = 0; i < 20; i++) { dataPoints.push({ x1: R(0.5, 4.5), x2: R(4, 9), label: 0 }); }
+        for (let i = 0; i < 20; i++) { dataPoints.push({ x1: R(5.5, 9.5), x2: R(1, 6), label: 1 }); }
+    } else if (p === 2) {
+        for (let i = 0; i < 25; i++) { dataPoints.push({ x1: R(1, 6), x2: R(3, 8), label: 0 }); }
+        for (let i = 0; i < 25; i++) { dataPoints.push({ x1: R(4, 9), x2: R(2, 7), label: 1 }); }
+    } else {
+        for (let i = 0; i < 20; i++) { dataPoints.push({ x1: R(0.5, 9.5), x2: R(0.5, 9.5), label: 0 }); }
+        for (let i = 0; i < 20; i++) { dataPoints.push({ x1: R(0.5, 9.5), x2: R(0.5, 9.5), label: 1 }); }
+    }
+    drawData();
+}
 
-    function drawGrid(ctx, w, h) {
-        ctx.clearRect(0, 0, w, h);
+function R(a, b) { return a + Math.random() * (b - a); }
 
-        // Background
-        const grad = ctx.createLinearGradient(0, 0, 0, h);
-        grad.addColorStop(0, '#0e0e0e');
-        grad.addColorStop(1, '#0a0a0a');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, w, h);
+// ===== DRAWING FUNCTIONS =====
+function drawData(canvas, ctx) {
+    canvas = canvas || dataCanvas;
+    ctx = ctx || dataCtx;
+    ctx.fillStyle = '#0d0d0d';
+    ctx.fillRect(0, 0, C.W, C.H);
+    drawGrid(ctx);
+    dataPoints.forEach(p => drawPoint(ctx, p.x1, p.x2, p.label));
+    updateCounts();
+}
 
-        // Grid lines
-        ctx.strokeStyle = 'rgba(255,122,26,0.05)';
-        ctx.lineWidth = 1;
-        for (let x = Math.ceil(COORD.xMin); x <= COORD.xMax; x++) {
-            const cx = toCanvasX(x);
-            ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
-        }
-        for (let y = Math.ceil(COORD.yMin); y <= COORD.yMax; y++) {
-            const cy = toCanvasY(y);
-            ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.stroke();
-        }
-
-        // Axes
-        ctx.strokeStyle = 'rgba(255,122,26,0.15)';
-        ctx.lineWidth = 1.5;
-        const cx0 = toCanvasX(0);
-        const cy0 = toCanvasY(0);
-        ctx.beginPath(); ctx.moveTo(cx0, 0); ctx.lineTo(cx0, h); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, cy0); ctx.lineTo(w, cy0); ctx.stroke();
-
-        // Axis labels
-        ctx.fillStyle = 'rgba(154,145,138,0.5)';
-        ctx.font = '11px Inter';
+function drawGrid(ctx) {
+    ctx.strokeStyle = 'rgba(255,122,26,0.06)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 10; i++) {
+        const x = C.PAD + i * (C.W - 2 * C.PAD) / 10;
+        const y = C.PAD + i * (C.H - 2 * C.PAD) / 10;
+        ctx.beginPath(); ctx.moveTo(x, C.PAD); ctx.lineTo(x, C.H - C.PAD); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(C.PAD, y); ctx.lineTo(C.W - C.PAD, y); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.font = '11px JetBrains Mono';
         ctx.textAlign = 'center';
-        for (let x = Math.ceil(COORD.xMin); x <= COORD.xMax; x += 1) {
-            ctx.fillText(x, toCanvasX(x), cy0 + 15);
-        }
+        ctx.fillText(i, x, C.H - C.PAD + 18);
         ctx.textAlign = 'right';
-        for (let y = Math.ceil(COORD.yMin); y <= COORD.yMax; y += 2) {
-            ctx.fillText(y, cx0 - 6, toCanvasY(y) + 4);
-        }
+        ctx.fillText(10 - i, C.PAD - 10, y + 4);
     }
+    ctx.strokeStyle = 'rgba(255,122,26,0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(C.PAD, C.PAD); ctx.lineTo(C.PAD, C.H - C.PAD); ctx.lineTo(C.W - C.PAD, C.H - C.PAD); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '12px Inter';
+    ctx.textAlign = 'center';
+    ctx.fillText('x₁', C.W / 2, C.H - 10);
+    ctx.save(); ctx.translate(14, C.H / 2); ctx.rotate(-Math.PI / 2); ctx.fillText('x₂', 0, 0); ctx.restore();
+}
 
-    function drawDataPoints(ctx, points, w, h) {
-        drawGrid(ctx, w, h);
+function toCanvasX(x) { return C.PAD + x / 10 * (C.W - 2 * C.PAD); }
+function toCanvasY(x) { return C.H - C.PAD - x / 10 * (C.H - 2 * C.PAD); }
 
-        points.forEach(p => {
-            const cx = toCanvasX(p.x);
-            const cy = toCanvasY(p.y);
+function drawPoint(ctx, x1, x2, label, r) {
+    r = r || 6;
+    const cx = toCanvasX(x1), cy = toCanvasY(x2);
+    const color = label === 0 ? '#4fc3f7' : '#ff7a1a';
+    ctx.beginPath(); ctx.arc(cx, cy, r + 3, 0, Math.PI * 2);
+    ctx.fillStyle = label === 0 ? 'rgba(79,195,247,0.15)' : 'rgba(255,122,26,0.15)';
+    ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1; ctx.stroke();
+}
 
-            // Outer glow
-            ctx.beginPath();
-            ctx.arc(cx, cy, 10, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255,122,26,0.12)';
-            ctx.fill();
-
-            // Inner dot
-            ctx.beginPath();
-            ctx.arc(cx, cy, 5, 0, Math.PI * 2);
-            ctx.fillStyle = '#ff7a1a';
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-        });
-    }
-
-    function refreshDataCanvas() {
-        setupHiDPI(dataCanvas, DATA_W, DATA_H);
-        drawDataPoints(dataCtx, dataPoints, DATA_W, DATA_H);
-        pointCountEl.textContent = dataPoints.length;
-    }
-
-    // Click to add point
-    dataCanvas.addEventListener('click', (e) => {
-        const rect = dataCanvas.getBoundingClientRect();
-        const scaleX = DATA_W / rect.width;
-        const scaleY = DATA_H / rect.height;
-        const cx = (e.clientX - rect.left) * scaleX;
-        const cy = (e.clientY - rect.top) * scaleY;
-        const dx = toDataX(cx);
-        const dy = toDataY(cy);
-        dataPoints.push({ x: parseFloat(dx.toFixed(2)), y: parseFloat(dy.toFixed(2)) });
-        refreshDataCanvas();
-    });
-
-    // Preset datasets
-    document.getElementById('btn-preset-1').addEventListener('click', () => {
-        dataPoints = [
-            {x:1, y:2}, {x:2, y:4}, {x:3, y:5}, {x:4, y:4.5},
-            {x:5, y:7}, {x:6, y:8}, {x:7, y:7.5}, {x:8, y:9},
-            {x:9, y:10}, {x:10, y:12}
-        ];
-        refreshDataCanvas();
-    });
-
-    document.getElementById('btn-preset-2').addEventListener('click', () => {
-        dataPoints = [
-            {x:0.5, y:1}, {x:1, y:3}, {x:1.5, y:2.5}, {x:2, y:5},
-            {x:3, y:4}, {x:3.5, y:6}, {x:4, y:5.5}, {x:5, y:7},
-            {x:5.5, y:8}, {x:6, y:7}, {x:7, y:9}, {x:8, y:10},
-            {x:9, y:11}, {x:9.5, y:10.5}, {x:10, y:13}
-        ];
-        refreshDataCanvas();
-    });
-
-    document.getElementById('btn-preset-3').addEventListener('click', () => {
-        dataPoints = [];
-        const n = 12 + Math.floor(Math.random() * 8);
-        const trueM = 0.5 + Math.random() * 1.5;
-        const trueB = -0.5 + Math.random() * 3;
-        for (let i = 0; i < n; i++) {
-            const x = 0.5 + Math.random() * 9.5;
-            const noise = (Math.random() - 0.5) * 3;
-            const y = trueM * x + trueB + noise;
-            dataPoints.push({ x: parseFloat(x.toFixed(2)), y: parseFloat(y.toFixed(2)) });
-        }
-        refreshDataCanvas();
-    });
-
-    document.getElementById('btn-clear').addEventListener('click', () => {
-        dataPoints = [];
-        refreshDataCanvas();
-    });
-
-    // ==================== SIMULATION CONFIGS ====================
-    function createSimCard(id) {
-        const idx = id % SIM_COLORS.length;
-        const color = SIM_COLORS[idx];
-        const name = SIM_NAMES[idx] || `Sim ${id + 1}`;
-
-        const lrOptions = [0.001, 0.005, 0.01, 0.02, 0.05];
-        const lr = lrOptions[id % lrOptions.length] || 0.01;
-        const initM = parseFloat((Math.random() * 6 - 3).toFixed(2));
-        const initB = parseFloat((Math.random() * 10 - 5).toFixed(2));
-
-        const card = document.createElement('div');
-        card.className = 'sim-card';
-        card.style.setProperty('--sim-color', color);
-        card.dataset.simId = id;
-        card.innerHTML = `
-            <div class="sim-card-header">
-                <div class="sim-card-title">
-                    <span class="sim-dot"></span>
-                    Simulasi ${name}
-                </div>
-                <button class="btn-remove" title="Hapus">✕</button>
-            </div>
-            <div class="sim-field">
-                <label>Learning Rate (α)</label>
-                <input type="number" class="input-lr" value="${lr}" min="0.0001" max="1" step="0.001">
-            </div>
-            <div class="sim-field-row">
-                <div class="sim-field">
-                    <label>Slope Awal (m₀)</label>
-                    <input type="number" class="input-m" value="${initM}" step="0.1">
-                </div>
-                <div class="sim-field">
-                    <label>Intercept Awal (b₀)</label>
-                    <input type="number" class="input-b" value="${initB}" step="0.1">
-                </div>
-            </div>
-            <div class="sim-field">
-                <button class="randomize-btn"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="3"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="16" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="16" r="1.5" fill="currentColor"/><circle cx="16" cy="16" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg> Randomize m & b</button>
-            </div>
-        `;
-
-        card.querySelector('.btn-remove').addEventListener('click', () => {
-            simulations = simulations.filter(s => s.id !== id);
-            card.remove();
-        });
-
-        card.querySelector('.randomize-btn').addEventListener('click', () => {
-            card.querySelector('.input-m').value = (Math.random() * 6 - 3).toFixed(2);
-            card.querySelector('.input-b').value = (Math.random() * 10 - 5).toFixed(2);
-        });
-
-        return card;
-    }
-
-    function addSimulation() {
-        const id = simIdCounter++;
-        const card = createSimCard(id);
-        simConfigsEl.appendChild(card);
-        simulations.push({ id });
-    }
-
-    // Initial 3 simulations
-    addSimulation();
-    addSimulation();
-    addSimulation();
-
-    document.getElementById('btn-add-sim').addEventListener('click', () => {
-        if (simIdCounter >= 6) {
-            alert('Maksimal 6 simulasi!');
-            return;
-        }
-        addSimulation();
-    });
-
-    // ==================== GRADIENT DESCENT ====================
-    function computeMSE(points, m, b) {
-        if (points.length === 0) return 0;
-        let sum = 0;
-        for (const p of points) {
-            const err = p.y - (m * p.x + b);
-            sum += err * err;
-        }
-        return sum / points.length;
-    }
-
-    function computeGradients(points, m, b) {
-        const n = points.length;
-        if (n === 0) return { dm: 0, db: 0 };
-        let dm = 0, db = 0;
-        for (const p of points) {
-            const err = p.y - (m * p.x + b);
-            dm += -2 * p.x * err;
-            db += -2 * err;
-        }
-        return { dm: dm / n, db: db / n };
-    }
-
-    // ==================== RUN SIMULATION ====================
-    const MAX_EPOCHS = 2000;
-
-    function collectSimConfigs() {
-        const cards = simConfigsEl.querySelectorAll('.sim-card');
-        const configs = [];
-        cards.forEach((card, idx) => {
-            const lr = parseFloat(card.querySelector('.input-lr').value) || 0.01;
-            const m0 = parseFloat(card.querySelector('.input-m').value) || 0;
-            const b0 = parseFloat(card.querySelector('.input-b').value) || 0;
-            const simId = parseInt(card.dataset.simId);
-            const color = SIM_COLORS[simId % SIM_COLORS.length];
-            const name = SIM_NAMES[simId % SIM_NAMES.length];
-            configs.push({ id: simId, lr, m0, b0, color, name, idx });
-        });
-        return configs;
-    }
-
-    function runAllGradientDescent(configs) {
-        return configs.map(cfg => {
-            let m = cfg.m0;
-            let b = cfg.b0;
-            const history = [{ m, b, mse: computeMSE(dataPoints, m, b) }];
-
-            for (let epoch = 0; epoch < MAX_EPOCHS; epoch++) {
-                const { dm, db } = computeGradients(dataPoints, m, b);
-                m -= cfg.lr * dm;
-                b -= cfg.lr * db;
-
-                // Divergence check
-                if (!isFinite(m) || !isFinite(b) || Math.abs(m) > 1e6 || Math.abs(b) > 1e6) {
-                    break;
-                }
-
-                const mse = computeMSE(dataPoints, m, b);
-                history.push({ m, b, mse });
-
-                // Early stopping
-                if (history.length > 2) {
-                    const prev = history[history.length - 2].mse;
-                    if (Math.abs(prev - mse) < 1e-10) break;
-                }
-            }
-
-            return {
-                ...cfg,
-                history,
-                finalM: history[history.length - 1].m,
-                finalB: history[history.length - 1].b,
-                finalMSE: history[history.length - 1].mse,
-                epochs: history.length - 1
-            };
-        });
-    }
-
-    // ==================== VISUALIZATION RENDERING ====================
-    const VIZ_W = 420, VIZ_H = 300;
-
-    function drawVizFrame(ctx, w, h, points, m, b, color, ghostHistory) {
-        // Background
-        const grad = ctx.createLinearGradient(0, 0, 0, h);
-        grad.addColorStop(0, '#0e0e0e');
-        grad.addColorStop(1, '#0a0a0a');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, w, h);
-
-        // Grid
-        ctx.strokeStyle = 'rgba(255,122,26,0.04)';
-        ctx.lineWidth = 1;
-        const scaleX = (x) => ((x - COORD.xMin) / (COORD.xMax - COORD.xMin)) * w;
-        const scaleY = (y) => h - ((y - COORD.yMin) / (COORD.yMax - COORD.yMin)) * h;
-
-        for (let x = Math.ceil(COORD.xMin); x <= COORD.xMax; x += 2) {
-            const sx = scaleX(x);
-            ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, h); ctx.stroke();
-        }
-        for (let y = Math.ceil(COORD.yMin); y <= COORD.yMax; y += 2) {
-            const sy = scaleY(y);
-            ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(w, sy); ctx.stroke();
-        }
-
-        // Ghost lines (history trail)
-        if (ghostHistory && ghostHistory.length > 1) {
-            const step = Math.max(1, Math.floor(ghostHistory.length / 15));
-            // Parse hex color to rgb components
-            const hexToRgb = (hex) => {
-                const r = parseInt(hex.slice(1,3), 16);
-                const g = parseInt(hex.slice(3,5), 16);
-                const b = parseInt(hex.slice(5,7), 16);
-                return {r, g, b};
-            };
-            const rgb = hexToRgb(color);
-            for (let i = 0; i < ghostHistory.length - 1; i += step) {
-                const gh = ghostHistory[i];
-                const alpha = 0.05 + 0.15 * (i / ghostHistory.length);
-                ctx.strokeStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(scaleX(COORD.xMin), scaleY(gh.m * COORD.xMin + gh.b));
-                ctx.lineTo(scaleX(COORD.xMax), scaleY(gh.m * COORD.xMax + gh.b));
-                ctx.stroke();
-            }
-        }
-
-        // Error lines
-        ctx.globalAlpha = 0.2;
-        ctx.strokeStyle = '#ff4d4d';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([3, 3]);
-        points.forEach(p => {
-            const pred = m * p.x + b;
-            ctx.beginPath();
-            ctx.moveTo(scaleX(p.x), scaleY(p.y));
-            ctx.lineTo(scaleX(p.x), scaleY(pred));
-            ctx.stroke();
-        });
-        ctx.setLineDash([]);
-        ctx.globalAlpha = 1;
-
-        // Current regression line
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2.5;
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 12;
+function drawDecisionBoundary(ctx, w1, w2, b, color, lw) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(C.PAD, C.PAD, C.W - 2 * C.PAD, C.H - 2 * C.PAD);
+    ctx.clip();
+    ctx.strokeStyle = color || '#ff7a1a';
+    ctx.lineWidth = lw || 2.5;
+    ctx.setLineDash([]);
+    if (Math.abs(w2) > 0.0001) {
+        const x1a = 0, x1b = 10;
+        const x2a = -(w1 * x1a + b) / w2;
+        const x2b = -(w1 * x1b + b) / w2;
         ctx.beginPath();
-        ctx.moveTo(scaleX(COORD.xMin), scaleY(m * COORD.xMin + b));
-        ctx.lineTo(scaleX(COORD.xMax), scaleY(m * COORD.xMax + b));
+        ctx.moveTo(toCanvasX(x1a), toCanvasY(x2a));
+        ctx.lineTo(toCanvasX(x1b), toCanvasY(x2b));
         ctx.stroke();
-        ctx.shadowBlur = 0;
-
-        // Data points
-        points.forEach(p => {
-            const cx = scaleX(p.x);
-            const cy = scaleY(p.y);
-            ctx.beginPath();
-            ctx.arc(cx, cy, 4, 0, Math.PI * 2);
-            ctx.fillStyle = '#ff7a1a';
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-            ctx.lineWidth = 0.8;
-            ctx.stroke();
-        });
+    } else if (Math.abs(w1) > 0.0001) {
+        const x1v = -b / w1;
+        ctx.beginPath();
+        ctx.moveTo(toCanvasX(x1v), toCanvasY(0));
+        ctx.lineTo(toCanvasX(x1v), toCanvasY(10));
+        ctx.stroke();
     }
+    ctx.restore();
+}
 
-    // ==================== MSE CHART ====================
-    const MSE_W = 900, MSE_H = 350;
-
-    function drawMSEChart(results, currentStep) {
-        setupHiDPI(mseChart, MSE_W, MSE_H);
-        const ctx = mseCtx;
-        const w = MSE_W, h = MSE_H;
-        const pad = { top: 20, right: 30, bottom: 50, left: 70 };
-        const plotW = w - pad.left - pad.right;
-        const plotH = h - pad.top - pad.bottom;
-
-        // Background
-        ctx.fillStyle = '#0e0e0e';
-        ctx.fillRect(0, 0, w, h);
-
-        // Find max MSE and max epoch (capped at currentStep)
-        let maxMSE = 0;
-        let maxEpoch = 0;
-        results.forEach(r => {
-            const steps = Math.min(r.history.length, currentStep + 1);
-            maxEpoch = Math.max(maxEpoch, steps);
-            for (let i = 0; i < steps; i++) {
-                if (isFinite(r.history[i].mse)) maxMSE = Math.max(maxMSE, r.history[i].mse);
+function drawProbabilityHeatmap(ctx, w1, w2, b) {
+    const imgW = C.W - 2 * C.PAD, imgH = C.H - 2 * C.PAD;
+    const imgData = ctx.createImageData(imgW, imgH);
+    const step = 2;
+    for (let py = 0; py < imgH; py += step) {
+        for (let px = 0; px < imgW; px += step) {
+            const x1 = px / imgW * 10;
+            const x2 = (1 - py / imgH) * 10;
+            const z = w1 * x1 + w2 * x2 + b;
+            const prob = sigmoid(z);
+            const r = Math.round(79 + (255 - 79) * prob);
+            const g = Math.round(195 + (122 - 195) * prob);
+            const bv = Math.round(247 + (26 - 247) * prob);
+            const alpha = 40;
+            for (let dy = 0; dy < step && py + dy < imgH; dy++) {
+                for (let dx = 0; dx < step && px + dx < imgW; dx++) {
+                    const idx = ((py + dy) * imgW + (px + dx)) * 4;
+                    imgData.data[idx] = r; imgData.data[idx + 1] = g;
+                    imgData.data[idx + 2] = bv; imgData.data[idx + 3] = alpha;
+                }
             }
-        });
-        if (maxMSE === 0) maxMSE = 1;
-        // Cap max MSE for visualization (prevent extreme values from squashing)
-        const displayMaxMSE = Math.min(maxMSE, maxMSE);
-
-        const scaleX = (epoch) => pad.left + (epoch / Math.max(maxEpoch - 1, 1)) * plotW;
-        const mseScale = (mse) => pad.top + plotH - (Math.min(mse, displayMaxMSE) / displayMaxMSE) * plotH;
-
-        // Grid
-        ctx.strokeStyle = 'rgba(255,122,26,0.05)';
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 5; i++) {
-            const y = pad.top + (i / 5) * plotH;
-            ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
         }
-
-        // Axis labels
-        ctx.fillStyle = 'rgba(154,145,138,0.5)';
-        ctx.font = '11px Inter';
-        ctx.textAlign = 'right';
-        for (let i = 0; i <= 5; i++) {
-            const val = displayMaxMSE * (1 - i / 5);
-            const y = pad.top + (i / 5) * plotH;
-            ctx.fillText(val.toFixed(2), pad.left - 8, y + 4);
-        }
-
-        ctx.textAlign = 'center';
-        const epochLabels = 5;
-        for (let i = 0; i <= epochLabels; i++) {
-            const epoch = Math.round((i / epochLabels) * (maxEpoch - 1));
-            const x = scaleX(epoch);
-            ctx.fillText(epoch, x, h - pad.bottom + 20);
-        }
-
-        // Axis titles
-        ctx.fillStyle = 'rgba(154,145,138,0.7)';
-        ctx.font = '12px Inter';
-        ctx.textAlign = 'center';
-        ctx.fillText('Epoch', w / 2, h - 8);
-        ctx.save();
-        ctx.translate(15, pad.top + plotH / 2);
-        ctx.rotate(-Math.PI / 2);
-        ctx.fillText('MSE', 0, 0);
-        ctx.restore();
-
-        // Draw lines for each simulation
-        results.forEach(r => {
-            const steps = Math.min(r.history.length, currentStep + 1);
-            if (steps < 2) return;
-
-            ctx.strokeStyle = r.color;
-            ctx.lineWidth = 2;
-            ctx.shadowColor = r.color;
-            ctx.shadowBlur = 6;
-            ctx.beginPath();
-            for (let i = 0; i < steps; i++) {
-                const x = scaleX(i);
-                const y = mseScale(r.history[i].mse);
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            }
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-
-            // Label at end
-            const lastI = steps - 1;
-            const lx = scaleX(lastI);
-            const ly = mseScale(r.history[lastI].mse);
-            ctx.fillStyle = r.color;
-            ctx.font = 'bold 11px Inter';
-            ctx.textAlign = 'left';
-            ctx.fillText(r.name, lx + 6, ly - 4);
-        });
     }
+    ctx.putImageData(imgData, C.PAD, C.PAD);
+}
 
-    // ==================== ANIMATION LOOP ====================
-    function buildVizCards(results) {
-        vizGrid.innerHTML = '';
-        results.forEach(r => {
-            const card = document.createElement('div');
-            card.className = 'viz-card';
-            card.innerHTML = `
-                <div class="viz-card-header">
-                    <div class="viz-card-title">
-                        <span class="sim-dot" style="background:${r.color};box-shadow:0 0 10px ${r.color}"></span>
-                        Simulasi ${r.name}
-                    </div>
-                    <div class="viz-card-stats">
-                        <div class="viz-stat">
-                            <span class="viz-stat-label">Epoch</span>
-                            <span class="viz-stat-value" data-stat="epoch">0</span>
-                        </div>
-                        <div class="viz-stat">
-                            <span class="viz-stat-label">m</span>
-                            <span class="viz-stat-value" data-stat="m">${r.m0.toFixed(3)}</span>
-                        </div>
-                        <div class="viz-stat">
-                            <span class="viz-stat-label">b</span>
-                            <span class="viz-stat-value" data-stat="b">${r.b0.toFixed(3)}</span>
-                        </div>
-                        <div class="viz-stat">
-                            <span class="viz-stat-label">MSE</span>
-                            <span class="viz-stat-value" data-stat="mse">—</span>
-                        </div>
-                        <div class="viz-stat">
-                            <span class="viz-stat-label">LR</span>
-                            <span class="viz-stat-value">${r.lr}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="viz-canvas-wrap">
-                    <canvas class="viz-canvas" width="${VIZ_W}" height="${VIZ_H}"></canvas>
-                </div>
-            `;
-            vizGrid.appendChild(card);
+// ===== MATH FUNCTIONS =====
+function sigmoid(z) { return 1 / (1 + Math.exp(-z)); }
 
-            const canvas = card.querySelector('.viz-canvas');
-            setupHiDPI(canvas, VIZ_W, VIZ_H);
-            r._canvas = canvas;
-            r._ctx = canvas.getContext('2d');
-            r._card = card;
-        });
+function updateCounts() {
+    const c0 = dataPoints.filter(p => p.label === 0).length;
+    const c1 = dataPoints.filter(p => p.label === 1).length;
+    document.getElementById('count-0').textContent = c0;
+    document.getElementById('count-1').textContent = c1;
+    document.getElementById('count-total').textContent = dataPoints.length;
+}
+
+function randomizeWeights() {
+    document.getElementById('w1-init').value = (Math.random() * 4 - 2).toFixed(2);
+    document.getElementById('w2-init').value = (Math.random() * 4 - 2).toFixed(2);
+    document.getElementById('b-init').value = (Math.random() * 4 - 2).toFixed(2);
+}
+
+// ===== ALGORITHMS =====
+function perceptronStep(w1, w2, b, lr, data) {
+    let misclassified = 0;
+    const shuffled = [...data].sort(() => Math.random() - 0.5);
+    for (const p of shuffled) {
+        const y = p.label === 1 ? 1 : -1;
+        const score = w1 * p.x1 + w2 * p.x2 + b;
+        if (y * score <= 0) {
+            w1 += lr * y * p.x1;
+            w2 += lr * y * p.x2;
+            b += lr * y;
+            misclassified++;
+        }
     }
+    return { w1, w2, b, misclassified };
+}
 
-    function animateSimulations(results) {
-        let step = 0;
-        const maxSteps = Math.max(...results.map(r => r.history.length));
+function logisticStep(w1, w2, b, lr, data) {
+    let totalLoss = 0;
+    let dw1 = 0, dw2 = 0, db = 0;
+    const n = data.length;
+    for (const p of data) {
+        const z = w1 * p.x1 + w2 * p.x2 + b;
+        const yhat = sigmoid(z);
+        const y = p.label;
+        const eps = 1e-15;
+        totalLoss += -(y * Math.log(yhat + eps) + (1 - y) * Math.log(1 - yhat + eps));
+        const err = yhat - y;
+        dw1 += err * p.x1;
+        dw2 += err * p.x2;
+        db += err;
+    }
+    w1 -= lr * dw1 / n;
+    w2 -= lr * dw2 / n;
+    b -= lr * db / n;
+    return { w1, w2, b, loss: totalLoss / n };
+}
 
-        function frame() {
-            if (animPaused) {
-                animFrameId = requestAnimationFrame(frame);
-                return;
-            }
+function calcAccuracy(w1, w2, b, data, isPerceptron) {
+    let correct = 0;
+    for (const p of data) {
+        const z = w1 * p.x1 + w2 * p.x2 + b;
+        let pred;
+        if (isPerceptron) { pred = z > 0 ? 1 : 0; }
+        else { pred = sigmoid(z) >= 0.5 ? 1 : 0; }
+        if (pred === p.label) correct++;
+    }
+    return data.length > 0 ? correct / data.length : 0;
+}
 
-            // How many steps per frame based on speed
-            const stepsPerFrame = Math.max(1, Math.floor(animSpeed / 10));
+function calcLogLoss(w1, w2, b, data) {
+    if (data.length === 0) return 0;
+    let total = 0;
+    const eps = 1e-15;
+    for (const p of data) {
+        const yhat = sigmoid(w1 * p.x1 + w2 * p.x2 + b);
+        total += -(p.label * Math.log(yhat + eps) + (1 - p.label) * Math.log(1 - yhat + eps));
+    }
+    return total / data.length;
+}
 
-            for (let s = 0; s < stepsPerFrame && step < maxSteps; s++, step++) {
-                results.forEach(r => {
-                    const i = Math.min(step, r.history.length - 1);
-                    const { m, b, mse } = r.history[i];
+// ===== SIMULATION =====
+function runSimulation() {
+    if (dataPoints.length < 4) { alert('Tambahkan minimal 4 titik data terlebih dahulu!'); return; }
+    const lr = parseFloat(document.getElementById('lr').value);
+    const epochs = parseInt(document.getElementById('epochs').value);
+    const w1Init = parseFloat(document.getElementById('w1-init').value);
+    const w2Init = parseFloat(document.getElementById('w2-init').value);
+    const bInit = parseFloat(document.getElementById('b-init').value);
+    const algoChoice = document.getElementById('algo-select').value;
 
-                    // Draw viz
-                    const ghostSlice = r.history.slice(0, i);
-                    drawVizFrame(r._ctx, VIZ_W, VIZ_H, dataPoints, m, b, r.color, ghostSlice);
+    simResults = [];
+    const algos = [];
+    if (algoChoice === 'both' || algoChoice === 'perceptron') algos.push('perceptron');
+    if (algoChoice === 'both' || algoChoice === 'logistic') algos.push('logistic');
 
-                    // Update stats
-                    const epochEl = r._card.querySelector('[data-stat="epoch"]');
-                    const mEl = r._card.querySelector('[data-stat="m"]');
-                    const bEl = r._card.querySelector('[data-stat="b"]');
-                    const mseEl = r._card.querySelector('[data-stat="mse"]');
-                    epochEl.textContent = i;
-                    mEl.textContent = m.toFixed(4);
-                    bEl.textContent = b.toFixed(4);
-                    mseEl.textContent = mse.toFixed(4);
-                });
-            }
-
-            // MSE chart
-            drawMSEChart(results, step);
-
-            if (step < maxSteps) {
-                const delay = Math.max(5, 120 - animSpeed);
-                setTimeout(() => {
-                    animFrameId = requestAnimationFrame(frame);
-                }, delay);
+    algos.forEach(algo => {
+        const history = [];
+        let w1 = w1Init, w2 = w2Init, b = bInit;
+        for (let e = 0; e < epochs; e++) {
+            if (algo === 'perceptron') {
+                const res = perceptronStep(w1, w2, b, lr, dataPoints);
+                w1 = res.w1; w2 = res.w2; b = res.b;
+                const loss = res.misclassified / dataPoints.length;
+                const acc = calcAccuracy(w1, w2, b, dataPoints, true);
+                history.push({ w1, w2, b, loss, acc, epoch: e + 1 });
             } else {
-                animRunning = false;
-                showResults(results);
+                const res = logisticStep(w1, w2, b, lr, dataPoints);
+                w1 = res.w1; w2 = res.w2; b = res.b;
+                const acc = calcAccuracy(w1, w2, b, dataPoints, false);
+                history.push({ w1, w2, b, loss: res.loss, acc, epoch: e + 1 });
             }
         }
+        simResults.push({ algo, history, color: algo === 'perceptron' ? '#4fc3f7' : '#ff7a1a' });
+    });
 
-        animRunning = true;
-        animPaused = false;
-        animFrameId = requestAnimationFrame(frame);
-    }
+    document.getElementById('viz-section').style.display = '';
+    document.getElementById('results-section').style.display = '';
+    isPaused = false;
+    document.getElementById('btn-pause').innerHTML = ICONS.pause + ' Pause';
+    buildVizCards();
+    startAnimation();
+    document.getElementById('viz-section').scrollIntoView({ behavior: 'smooth' });
+}
 
-    // ==================== RESULTS ====================
-    function showResults(results) {
-        resultsSection.style.display = '';
-
-        // Sort by MSE
-        const sorted = [...results].sort((a, b) => a.finalMSE - b.finalMSE);
-
-        resultsBody.innerHTML = '';
-        sorted.forEach((r, idx) => {
-            const rank = idx + 1;
-            const tr = document.createElement('tr');
-            if (rank === 1) tr.className = 'best-row';
-
-            let rankClass = '';
-            if (rank === 1) rankClass = 'rank-1';
-            else if (rank === 2) rankClass = 'rank-2';
-            else if (rank === 3) rankClass = 'rank-3';
-
-            tr.innerHTML = `
-                <td><span class="rank-badge ${rankClass}">${rank}</span></td>
-                <td style="color:${r.color};font-weight:700;font-family:var(--font-main);">${r.name}</td>
-                <td>${r.lr}</td>
-                <td>${r.m0.toFixed(3)}</td>
-                <td>${r.b0.toFixed(3)}</td>
-                <td>${r.finalM.toFixed(5)}</td>
-                <td>${r.finalB.toFixed(5)}</td>
-                <td style="font-weight:700;${rank === 1 ? 'color:var(--success)' : ''}">${r.finalMSE.toFixed(6)}</td>
-                <td>${r.epochs}</td>
-            `;
-            resultsBody.appendChild(tr);
-        });
-
-        // Best result card
-        const best = sorted[0];
-        bestResultCard.style.display = '';
-        bestResultCard.innerHTML = `
-            <h3><svg class="icon icon-inline icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg> Garis Regresi Terbaik — Simulasi ${best.name}</h3>
-            <div class="equation">ŷ = ${best.finalM.toFixed(5)}·x + ${best.finalB.toFixed(5)}</div>
-            <div class="mse-value">MSE = ${best.finalMSE.toFixed(6)} | Learning Rate = ${best.lr} | Epochs = ${best.epochs}</div>
+// ===== VISUALIZATION =====
+function buildVizCards() {
+    const grid = document.getElementById('viz-grid');
+    grid.innerHTML = '';
+    simResults.forEach((sim, i) => {
+        const card = document.createElement('div');
+        card.className = 'viz-card';
+        card.innerHTML = `
+            <div class="viz-card-header">
+                <div class="viz-card-title">
+                    <span style="width:12px;height:12px;border-radius:50%;background:${sim.color};box-shadow:0 0 10px ${sim.color};display:inline-block;"></span>
+                    ${sim.algo === 'perceptron' ? 'Perceptron' : 'Logistic Regression'}
+                </div>
+                <div class="viz-card-stats">
+                    <div class="viz-stat"><span class="viz-stat-label">Epoch</span><span class="viz-stat-value" id="epoch-${i}">0</span></div>
+                    <div class="viz-stat"><span class="viz-stat-label">Accuracy</span><span class="viz-stat-value" id="acc-${i}">0%</span></div>
+                    <div class="viz-stat"><span class="viz-stat-label">Loss</span><span class="viz-stat-value" id="loss-${i}">—</span></div>
+                </div>
+            </div>
+            <div class="viz-canvas-wrap"><canvas id="viz-canvas-${i}" width="800" height="500"></canvas></div>
         `;
+        grid.appendChild(card);
+    });
+}
 
-        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+let currentEpoch = 0;
+function startAnimation() {
+    currentEpoch = 0;
+    if (animationId) cancelAnimationFrame(animationId);
+    animate();
+}
+
+function animate() {
+    if (isPaused) { animationId = requestAnimationFrame(animate); return; }
+    const speed = parseInt(document.getElementById('speed-slider').value);
+    document.getElementById('speed-label').textContent = speed;
+    const stepsPerFrame = Math.max(1, Math.floor(speed / 10));
+    const maxEpoch = simResults[0]?.history.length || 0;
+
+    for (let s = 0; s < stepsPerFrame && currentEpoch < maxEpoch; s++) {
+        currentEpoch++;
     }
 
-    // ==================== EVENT HANDLERS ====================
-    document.getElementById('btn-run-all').addEventListener('click', () => {
-        if (dataPoints.length < 2) {
-            alert('Tambahkan minimal 2 titik data terlebih dahulu!');
-            return;
+    simResults.forEach((sim, i) => {
+        const canvas = document.getElementById(`viz-canvas-${i}`);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const frame = sim.history[Math.min(currentEpoch - 1, sim.history.length - 1)];
+        if (!frame) return;
+
+        ctx.fillStyle = '#0d0d0d';
+        ctx.fillRect(0, 0, C.W, C.H);
+
+        if (sim.algo === 'logistic') {
+            drawProbabilityHeatmap(ctx, frame.w1, frame.w2, frame.b);
         }
 
-        const configs = collectSimConfigs();
-        if (configs.length === 0) {
-            alert('Tambahkan minimal 1 simulasi!');
-            return;
-        }
+        drawGrid(ctx);
+        drawDecisionBoundary(ctx, frame.w1, frame.w2, frame.b, sim.color, 3);
+        dataPoints.forEach(p => drawPoint(ctx, p.x1, p.x2, p.label));
 
-        // Cancel any running animation
-        if (animFrameId) cancelAnimationFrame(animFrameId);
-        animRunning = false;
-
-        // Run gradient descent
-        simResults = runAllGradientDescent(configs);
-
-        // Show viz section
-        vizSection.style.display = '';
-        resultsSection.style.display = 'none';
-
-        // Build viz cards
-        buildVizCards(simResults);
-
-        // Scroll to viz
-        vizSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-        // Start animation
-        setTimeout(() => {
-            animateSimulations(simResults);
-        }, 500);
+        document.getElementById(`epoch-${i}`).textContent = frame.epoch;
+        document.getElementById(`acc-${i}`).textContent = (frame.acc * 100).toFixed(1) + '%';
+        document.getElementById(`loss-${i}`).textContent = frame.loss.toFixed(4);
     });
 
-    document.getElementById('btn-pause').addEventListener('click', () => {
-        animPaused = !animPaused;
-        const pauseBtn = document.getElementById('btn-pause');
-        if (animPaused) {
-            pauseBtn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg> Play';
-        } else {
-            pauseBtn.innerHTML = '<svg class="icon pause-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg> Pause';
+    drawLossChart(currentEpoch);
+
+    if (currentEpoch < maxEpoch) {
+        animationId = requestAnimationFrame(animate);
+    } else {
+        showResults();
+    }
+}
+
+// ===== LOSS CHART =====
+function drawLossChart(upToEpoch) {
+    const canvas = document.getElementById('loss-chart');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const pad = { t: 30, r: 30, b: 50, l: 70 };
+
+    ctx.fillStyle = '#0d0d0d';
+    ctx.fillRect(0, 0, W, H);
+
+    if (simResults.length === 0) return;
+
+    let maxLoss = 0;
+    simResults.forEach(sim => {
+        for (let i = 0; i < Math.min(upToEpoch, sim.history.length); i++) {
+            if (sim.history[i].loss > maxLoss) maxLoss = sim.history[i].loss;
         }
     });
+    maxLoss = Math.max(maxLoss, 0.1) * 1.1;
+    const maxE = simResults[0].history.length;
 
-    document.getElementById('btn-reset-viz').addEventListener('click', () => {
-        if (animFrameId) cancelAnimationFrame(animFrameId);
-        animRunning = false;
-        animPaused = false;
-        document.getElementById('btn-pause').textContent = '⏸ Pause';
+    ctx.strokeStyle = 'rgba(255,122,26,0.06)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 5; i++) {
+        const y = pad.t + i * (H - pad.t - pad.b) / 5;
+        ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.font = '11px JetBrains Mono';
+        ctx.textAlign = 'right';
+        ctx.fillText((maxLoss * (1 - i / 5)).toFixed(3), pad.l - 8, y + 4);
+    }
 
-        if (simResults.length > 0) {
-            buildVizCards(simResults);
-            setTimeout(() => {
-                animateSimulations(simResults);
-            }, 300);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '12px Inter';
+    ctx.textAlign = 'center';
+    ctx.fillText('Epoch', W / 2, H - 10);
+    ctx.save(); ctx.translate(16, H / 2); ctx.rotate(-Math.PI / 2); ctx.fillText('Loss', 0, 0); ctx.restore();
+
+    simResults.forEach(sim => {
+        ctx.strokeStyle = sim.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        const n = Math.min(upToEpoch, sim.history.length);
+        for (let i = 0; i < n; i++) {
+            const x = pad.l + i / maxE * (W - pad.l - pad.r);
+            const y = pad.t + (1 - sim.history[i].loss / maxLoss) * (H - pad.t - pad.b);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
+        ctx.stroke();
     });
 
-    speedSlider.addEventListener('input', () => {
-        animSpeed = parseInt(speedSlider.value);
-        speedLabel.textContent = animSpeed;
+    let lx = pad.l + 10;
+    simResults.forEach(sim => {
+        ctx.fillStyle = sim.color;
+        ctx.fillRect(lx, pad.t + 5, 14, 3);
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.font = '11px Inter';
+        ctx.textAlign = 'left';
+        ctx.fillText(sim.algo === 'perceptron' ? 'Perceptron' : 'Logistic Regression', lx + 20, pad.t + 10);
+        lx += 160;
+    });
+}
+
+// ===== RESULTS =====
+function showResults() {
+    const tbody = document.getElementById('results-body');
+    tbody.innerHTML = '';
+    let bestAcc = -1, bestIdx = 0;
+
+    simResults.forEach((sim, i) => {
+        const last = sim.history[sim.history.length - 1];
+        if (last.acc > bestAcc) { bestAcc = last.acc; bestIdx = i; }
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><span style="color:${sim.color};font-weight:700;">${sim.algo === 'perceptron' ? 'Perceptron' : 'Logistic Regression'}</span></td>
+            <td>${last.w1.toFixed(4)}</td><td>${last.w2.toFixed(4)}</td><td>${last.b.toFixed(4)}</td>
+            <td style="color:${last.acc >= 0.9 ? 'var(--success)' : 'var(--text-primary)'}; font-weight:700;">${(last.acc * 100).toFixed(1)}%</td>
+            <td>${last.loss.toFixed(6)}</td><td>${last.epoch}</td>
+        `;
+        tbody.appendChild(tr);
     });
 
-    // ==================== INIT ====================
-    refreshDataCanvas();
+    if (tbody.rows.length > 0) tbody.rows[bestIdx].classList.add('best-row');
 
-})();
+    const best = simResults[bestIdx];
+    const last = best.history[best.history.length - 1];
+    const card = document.getElementById('best-result-card');
+    card.style.display = '';
+    card.innerHTML = `
+        <h3>${ICONS.trophy} Algoritma Terbaik: ${best.algo === 'perceptron' ? 'Perceptron' : 'Logistic Regression'}</h3>
+        <div class="equation">${last.w1.toFixed(3)}·x₁ + ${last.w2.toFixed(3)}·x₂ + ${last.b.toFixed(3)} = 0</div>
+        <div class="detail">Accuracy: ${(last.acc * 100).toFixed(1)}% · Final Loss: ${last.loss.toFixed(6)}</div>
+        <div class="detail">Decision Boundary: x₂ = ${(-last.w1 / last.w2).toFixed(3)}·x₁ + ${(-last.b / last.w2).toFixed(3)}</div>
+    `;
+}
+
+// ===== CONTROLS =====
+function togglePause() {
+    isPaused = !isPaused;
+    document.getElementById('btn-pause').innerHTML = isPaused ? ICONS.play + ' Play' : ICONS.pause + ' Pause';
+}
+
+function resetViz() {
+    if (animationId) cancelAnimationFrame(animationId);
+    currentEpoch = 0;
+    isPaused = false;
+    document.getElementById('btn-pause').innerHTML = ICONS.pause + ' Pause';
+    if (simResults.length > 0) startAnimation();
+}
+
+// ===== INIT =====
+drawData();

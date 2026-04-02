@@ -1,151 +1,93 @@
-# Tugas 2 — Simulasi Regresi Linier dengan Gradient Descent
+# Logistic Regression & Perceptron Algorithm — Interactive Simulation
 
-**Mata Kuliah:** Pemodelan Inteligensi Buatan  
-**Nama:** Muhammad Dzikri Hikmatika Chairul Hadi  
-**NIM:** 225090307111007
+> **Assignment 3 — Artificial Intelligence Modeling Course**  
+> Brawijaya University · Computer Science
 
----
+An interactive, browser-based simulation that implements and visually compares **Logistic Regression** and the **Perceptron Algorithm** for binary classification. Built as a single HTML file with vanilla JavaScript and Canvas API — no external dependencies required.
 
-## Deskripsi
+## 🎬 Reference
 
-Simulasi interaktif untuk menemukan **garis regresi linier terbaik** (`ŷ = m·x + b`) menggunakan **pendekatan numerik Gradient Descent**. 
+Based on the concepts from:  
+📺 [**Luis Serrano — Logistic Regression and the Perceptron Algorithm: A Friendly Introduction**](https://www.youtube.com/watch?v=jbluHIgBmBo)  
+📘 *Grokking Machine Learning* (Manning Publications)
 
-Program ini memungkinkan pengguna menjalankan **beberapa simulasi sekaligus** dengan parameter yang berbeda (learning rate, slope awal, intercept awal), lalu membandingkan hasilnya berdasarkan **Mean Squared Error (MSE)** untuk menentukan garis terbaik.
+## ✨ Features
 
-Terinspirasi dari video [Linear Regression: A Friendly Introduction](https://www.youtube.com/watch?v=wYPUhge9w5c) oleh Luis Serrano.
+### Algorithms Implemented
+| Algorithm | Method | Update Rule |
+|-----------|--------|-------------|
+| **Perceptron** | Misclassification-driven | `w = w + α·y·x`, `b = b + α·y` |
+| **Logistic Regression** | Gradient Descent + Sigmoid | `w = w - α·∇L(w)` with Log-Loss |
 
----
+### Interactive Capabilities
+- **Click-to-add data points** — place Class 0 (blue) and Class 1 (orange) points on a 2D canvas
+- **Preset datasets** — Linearly Separable, Overlapping, and Random configurations
+- **Configurable parameters** — Learning rate, epochs, initial weights (w₁, w₂, b)
+- **Side-by-side comparison** — run both algorithms simultaneously on the same data
+- **Real-time animation** — watch the decision boundary evolve during training
+- **Probability heatmap** — visualize sigmoid output across the feature space (Logistic Regression)
+- **Loss convergence chart** — track error reduction over epochs
+- **Results table** — compare final weights, accuracy, and loss
 
-## Cara Kerja Algoritma
+## 🧮 Mathematical Foundation
 
-### 1. Model Linier
-Garis regresi dimodelkan sebagai:
+### Sigmoid Function
 ```
-ŷ = m·x + b
-```
-- `m` = slope (kemiringan garis)
-- `b` = intercept (titik potong sumbu y)
-
-### 2. Mean Squared Error (MSE)
-Fungsi cost yang mengukur seberapa jauh garis prediksi dari data aktual:
-```
-MSE = (1/n) Σ(yᵢ - ŷᵢ)²
-```
-Semakin kecil MSE, semakin baik garis regresi mewakili data.
-
-### 3. Gradient Descent
-Algoritma optimisasi numerik yang secara iteratif memperbarui nilai `m` dan `b` untuk meminimalkan MSE:
-```
-∂MSE/∂m = (-2/n) Σ xᵢ·(yᵢ - ŷᵢ)
-∂MSE/∂b = (-2/n) Σ (yᵢ - ŷᵢ)
-
-m = m - α · ∂MSE/∂m
-b = b - α · ∂MSE/∂b
-```
-- `α` (alpha) = learning rate, mengontrol ukuran langkah setiap iterasi
-
-### 4. Learning Rate
-- **Terlalu besar** → parameter akan melompat-lompat dan bisa divergen (tidak konvergen)
-- **Terlalu kecil** → konvergensi sangat lambat, butuh banyak epoch
-- **Tepat** → konvergensi cepat dan stabil menuju MSE minimum
-
----
-
-## Fitur Aplikasi
-
-### Step 1 — Input Data Points
-- Klik langsung pada canvas untuk menambah titik data secara manual
-- 3 opsi dataset preset: Dataset 1, Dataset 2, dan Random
-- Tombol Clear untuk menghapus semua titik
-
-### Step 2 — Konfigurasi Simulasi
-- Masing-masing simulasi bisa diatur:
-  - **Learning Rate (α)** — kecepatan belajar algoritma
-  - **Slope Awal (m₀)** — nilai awal kemiringan garis (random)
-  - **Intercept Awal (b₀)** — nilai awal titik potong (random)
-- Maksimal 6 simulasi berjalan bersamaan
-- Tombol Randomize untuk mengacak ulang nilai awal
-
-### Step 3 — Visualisasi Animasi
-- Setiap simulasi memiliki canvas sendiri yang menampilkan:
-  - **Garis regresi** bergerak menuju posisi optimal
-  - **Ghost lines** — jejak pergerakan garis sebelumnya
-  - **Error lines** — garis putus-putus menunjukkan jarak (residual) tiap titik ke garis
-- **Statistik real-time**: epoch, m, b, MSE untuk setiap simulasi
-- **Grafik MSE Convergence** — menampilkan kurva penurunan MSE semua simulasi dalam satu chart
-- Kontrol: kecepatan animasi, pause/play, dan reset
-
-### Hasil — Perbandingan
-- Tabel ranking semua simulasi di-sort berdasarkan **MSE terendah**
-- Menampilkan: rank, learning rate, initial m/b, final m/b, final MSE, jumlah epoch
-- Card khusus untuk **garis regresi terbaik** beserta persamaannya
-
----
-
-## Struktur File
-
-```
-├── index.html    # Halaman utama (struktur HTML)
-├── style.css     # Styling (tema hitam-oranye minimalis)
-├── app.js        # Logika gradient descent, rendering canvas, animasi
-└── README.md     # Dokumentasi ini
+σ(z) = 1 / (1 + e⁻ᶻ)
+where z = w₁·x₁ + w₂·x₂ + b
 ```
 
-### Penjelasan Tiap File
+### Log-Loss (Binary Cross-Entropy)
+```
+L = -(1/n) Σ [yᵢ·ln(ŷᵢ) + (1 - yᵢ)·ln(1 - ŷᵢ)]
+```
 
-#### `index.html`
-Struktur halaman web yang terdiri dari:
-- **Hero header** — judul tugas, nama mahasiswa, NIM
-- **Section Data Points** — canvas interaktif dan tombol preset
-- **Section Konfigurasi** — card simulasi dan tombol jalankan
-- **Section Visualisasi** — grid canvas animasi dan chart MSE
-- **Section Hasil** — tabel perbandingan dan card garis terbaik
-- **Section Info** — penjelasan teori (model linier, MSE, gradient descent, learning rate)
+### Gradient Descent Update
+```
+wⱼ = wⱼ - α · (1/n) Σ (ŷᵢ - yᵢ) · xⱼ
+b  = b  - α · (1/n) Σ (ŷᵢ - yᵢ)
+```
 
-#### `style.css`
-Desain visual dengan tema minimalis hitam-oranye:
-- CSS custom properties (variables) untuk konsistensi warna
-- Layout responsif dengan CSS Grid dan Flexbox
-- Animasi halus (fade-in, hover effects)
-- HiDPI/Retina canvas support
+### Perceptron Update (for misclassified points)
+```
+w = w + α · y · x
+b = b + α · y
+```
 
-#### `app.js`
-Seluruh logika aplikasi:
-- **`computeMSE()`** — menghitung Mean Squared Error
-- **`computeGradients()`** — menghitung turunan parsial ∂MSE/∂m dan ∂MSE/∂b
-- **`runAllGradientDescent()`** — menjalankan gradient descent untuk semua simulasi
-- **`drawVizFrame()`** — rendering canvas per frame (garis, titik, error lines)
-- **`drawMSEChart()`** — rendering grafik konvergensi MSE
-- **`animateSimulations()`** — loop animasi dengan kontrol kecepatan
-- **`showResults()`** — menampilkan tabel perbandingan di-sort berdasarkan MSE
+## 🚀 How to Run
 
----
+Simply open the HTML file in any modern web browser:
 
-## Cara Menjalankan
+```bash
+# Clone the repository
+git clone https://github.com/painfulbykisses/Logistic-Regression.git
 
-1. Download atau clone repository ini
-2. Buka file `index.html` di browser (double-click)
-3. Pilih dataset atau klik canvas untuk menambah titik data
-4. Atur parameter simulasi (learning rate, slope awal, intercept awal)
-5. Klik **"Jalankan Semua Simulasi"**
-6. Amati animasi pencarian garis terbaik
-7. Lihat tabel hasil perbandingan di bagian bawah
+# Open in browser
+start Muhammad\ Dzikri\ Hikmatika_Tugas_logistic_regression.html
+```
 
----
+No server, no build step, no dependencies — just open and use.
 
-## Teknologi
+## 📖 How to Use
 
-- **HTML5 Canvas** — rendering grafik dan animasi
-- **Vanilla JavaScript** — algoritma gradient descent dan logika aplikasi
-- **Vanilla CSS** — styling dengan custom properties
-- **Google Fonts** — Inter (teks) dan JetBrains Mono (kode/angka)
+1. **Step 1 — Add Data**: Select a class (blue or orange), then click on the canvas to place points. Or use a preset dataset.
+2. **Step 2 — Configure**: Set learning rate, number of epochs, initial weights, and choose which algorithm(s) to run.
+3. **Step 3 — Run**: Click "Jalankan Simulasi" to start training. Watch the decision boundary animate in real-time.
+4. **Results**: Compare algorithm performance in the summary table after training completes.
 
-Tidak menggunakan library atau framework eksternal.
+## 🛠 Tech Stack
 
----
+- **HTML5 Canvas** — data visualization and animation
+- **Vanilla JavaScript** — algorithm implementation (no libraries)
+- **CSS3** — premium dark theme with glassmorphism effects
+- **Google Fonts** — Inter + JetBrains Mono
 
-## Referensi
+## 👤 Author
 
-- [Linear Regression: A Friendly Introduction — Luis Serrano (YouTube)](https://www.youtube.com/watch?v=wYPUhge9w5c)
-- [Gradient Descent — Wikipedia](https://en.wikipedia.org/wiki/Gradient_descent)
-- [Mean Squared Error — Wikipedia](https://en.wikipedia.org/wiki/Mean_squared_error)
+**Muhammad Dzikri Hikmatika Chairul Hadi**  
+NIM: 225090307111007  
+Artificial Intelligence Modeling · Brawijaya University
+
+## 📄 License
+
+This project is for educational purposes as part of the AI Modeling course curriculum.
